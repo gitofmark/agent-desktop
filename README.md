@@ -2,6 +2,8 @@
 
 **The minimal natural snapshot of a window, and actions on the refs it prints.**
 
+New here? [USAGE.md](USAGE.md) is a task-by-task walkthrough with real output.
+
 A screen is a bad interface for an agent: an accessibility tree is thousands of
 nodes, most of them invisible, and a screenshot costs a fortune in tokens.
 `echo-desktop` reads the tree once and prints a short, stable, human-readable
