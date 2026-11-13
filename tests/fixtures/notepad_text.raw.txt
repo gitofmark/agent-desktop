@@ -1,0 +1,27 @@
+agdesk-raw 1
+app: Notepad
+title: snap.js - Notepad
+number: 2
+session: local
+backend: capture-windows
+---
+e1|Window|snap.js - Notepad|0,0,1920,1080|SetFocus|Maximized||0x00012A|visible|
+ e2|Pane|||||||visible|
+  e3|Pane|||||||visible|
+   e4|Button|Minimize|1660,8,46,32|Invoke|||0x0004|visible|
+   e5|Button|Maximize|1712,8,46,32|Invoke|||0x0005|visible|
+   e6|Button|Close|1764,8,46,32|Invoke|||0x0006|visible|
+  e7|MenuBar|||||||visible|
+   e8|MenuItem|File|8,48,48,28|Invoke|||0x0008|visible|
+   e9|MenuItem|Edit|60,48,48,28|Invoke|||0x0009|visible|
+   e10|MenuItem|Format|112,48,64,28|Invoke|||0x000A|visible|
+   e11|MenuItem|View|180,48,52,28|Invoke|||0x000B|visible|
+   e12|MenuItem|Help|236,48,52,28|Invoke|||0x000C|visible|
+  e13|Edit|Text Editor|0,76,1900,960|SetFocus,SetValue|Focused|const snap = render(snapshot);\nconst lines = snap.split('\\n');\nfor (const line of lines) {\n  if (line.startsWith('[')) {\n    const m = line.match(/\\[(\\w+)\\] (.*?) (e\\d+)/);\n    if (m) rows.push({ role: m[1], name: m[2], ref: m[3] });\n  }\n}\nfunction budget(items, cap) {\n  if (items.length <= cap) return items;\n  return items.slice(0, cap - 1).concat(['... ' + (items.length - cap + 1) + ' more']);\n}\nconst snap = render(snapshot);\nconst lines = snap.split('\\n');\nfor (const line of lines) {\n  if (line.startsWith('[')) {\n    const m = line.match(/\\[(\\w+)\\] (.*?) (e\\d+)/);\n    if (m) rows.push({ role: m[1], name: m[2], ref: m[3] });\n  }\n}\nfunction budget(items, cap) {\n  if (items.length <= cap) return items;\n  return items.slice(0, cap - 1).concat(['... ' + (items.length - cap + 1) + ' more']);\n}\nconst snap = render(snapshot);\nconst lines = snap.split('\\n');\nfor (const line of lines) {\n  if (line.startsWith('[')) {\n    const m = line.match(/\\[(\\w+)\\] (.*?) (e\\d+)/);\n    if (m) rows.push({ role: m[1], name: m[2], ref: m[3] });\n  }\n}\nfunction budget(items, cap) {\n  if (items.length <= cap) return items;\n  return items.slice(0, cap - 1).concat(['... ' + (items.length - cap + 1) + ' more']);\n}\nconst snap = render(snapshot);\nconst lines = snap.split('\\n');\nfor (const line of lines) {\n  if (line.startsWith('[')) {\n    const m = line.match(/\\[(\\w+)\\] (.*?) (e\\d+)/);\n    if (m) rows.push({ role: m[1], name: m[2], ref: m[3] });\n  }\n}\nfunction budget(items, cap) {\n  if (items.length <= cap) return items;\n  return items.slice(0, cap - 1).concat(['... ' + (items.length - cap + 1) + ' more']);\n}\nconst snap = render(snapshot);\nconst lines = snap.split('\\n');\nfor (const line of lines) {\n  if (line.startsWith('[')) {\n    const m = line.match(/\\[(\\w+)\\] (.*?) (e\\d+)/);\n    if (m) rows.push({ role: m[1], name: m[2], ref: m[3] });\n  }\n}\nfunction budget(items, cap) {\n  if (items.length <= cap) return items;\n  return items.slice(0, cap - 1).concat(['... ' + (items.length - cap + 1) + ' more']);\n}\nconst snap = render(snapshot);\nconst lines = snap.split('\\n');\nfor (const line of lines) {\n  if (line.startsWith('[')) {\n    const m = line.match(/\\[(\\w+)\\] (.*?) (e\\d+)/);\n    if (m) rows.push({ role: m[1], name: m[2], ref: m[3] });\n  }\n}\nfunction budget(items, cap) {\n  if (items.length <= cap) return items;\n  return items.slice(0, |0x000D|visible|chars=2340
+  e14|ScrollBar|Vertical|1900,76,20,960|Scroll|||0x000E|visible|
+   e15|Button|Line up|1900,76,20,20|Invoke|||0x000F|visible|
+   e16|Button|Page up|1900,96,20,60|Invoke|||0x0010|visible|
+   e17|Button|Page down|1900,900,20,60|Invoke|||0x0011|visible|
+   e18|Button|Line down|1900,960,20,20|Invoke|||0x0012|visible|
+  e19|StatusBar|||||||visible|
+   e20|Text|Ln 62, Col 45|8,1040,160,20||||0x0014|visible|

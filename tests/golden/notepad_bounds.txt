@@ -1,0 +1,8 @@
+Notepad — "Untitled - Notepad"  (snapshot 1, session local)
+
+[window] Untitled - Notepad e1 — maximized, @0,0 1920x1080
+[window_button] Minimize e4 @1660,8 46x32 · Maximize e5 @1712,8 46x32 · Close e6 @1764,8 46x32
+[menu] File e8 @8,48 48x28 · Edit e9 @60,48 48x28 · Format e10 @112,48 64x28 · View e11 @180,48 52x28 · Help e12 @236,48 52x28
+[edit] Text Editor e13 — focused, 0 chars, @0,76 1900x960
+[scrollbar] Vertical e14 — line up e15 @1900,76 20x20, page up e16 @1900,96 20x60, page down e17 @1900,900 20x60, line down e18 @1900,960 20x20
+[text] Ln 1, Col 1 e20 — @8,1040 160x20

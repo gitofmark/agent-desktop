@@ -1,0 +1,19 @@
+xwininfo: Window id: 0x3e000007 "gedit"
+
+  Root window id: 0x6b5 (the root window) (has no name)
+  Parent window id: 0x6b3 (has no name)
+     5 children:
+     0x3e00010 "gedit": ("gedit" "Gedit")  800x600+0+0  +120+80
+     0x3e00011 "gedit": ("gedit" "Gedit")  800x28+0+0  +120+80
+        2 children:
+        0x3e00020 (has no name): ()  120x28+0+0  +120+80
+           3 children:
+           0x3e00021 "Open": ("button" "Button")  32x24+4+2  +124+82
+           0x3e00022 "Save": ("button" "Button")  32x24+40+2  +160+82
+           0x3e00023 "Close": ("button" "Button")  32x24+76+2  +196+82
+     0x3e00012 "gedit": ("gedit" "Gedit")  800x540+0+28  +120+108
+        1 child:
+        0x3e00030 "Text Editor": ("text" "Text")  800x540+0+0  +120+108
+     0x3e00013 "gedit": ("gedit" "Gedit")  800x32+0+568  +120+648
+        1 child:
+        0x3e00040 "Ln 1, Col 1": ("label" "Label")  160x20+8+6  +128+654

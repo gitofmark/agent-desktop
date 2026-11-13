@@ -1,0 +1,15 @@
+Notepad — "snap.js - Notepad"  (snapshot 4, session local)
+
+[dialog] Save As e40 — modal
+[text] File name: e41
+[combobox] File name: e42 — focused, "snap.js"
+[text] Save as type: e43
+[combobox] Save as type: e44 — "Text Documents (*.txt)"
+[button] Save e45 — default
+[button] Cancel e46
+[window] snap.js - Notepad e1 (background)
+[window_button] Minimize e4 · Maximize e5 · Close e6
+[menu] File e8 · Edit e9 · Format e10 · View e11 · Help e12
+[edit] Text Editor e13 — focused, 2340 chars, 71 lines, starts "const snap = render(snapshot); const lines = snap.split('\n'); for (const line o..."
+[scrollbar] Vertical e14 — line up e15, page up e16, page down e17, line down e18
+[text] Ln 62, Col 45 e20
