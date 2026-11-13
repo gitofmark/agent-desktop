@@ -1,13 +1,13 @@
 # Pull request
 
 **Branch:** `arena/3c537f53-agent-desktop` → `main`
-**Title:** `snapshot_parser` + `agent-desktop`: minimal natural snapshots for ECHO
+**Title:** `snapshot_parser` + `echo-desktop`: minimal natural snapshots for ECHO
 
 ---
 
 ## What changed
 
-A new package, `snapshot_parser`, and a CLI, `agent-desktop`, that turn a
+A new package, `snapshot_parser`, and a CLI, `echo-desktop`, that turn a
 window's accessibility tree into the minimal natural snapshot described in the
 plan, plus actions on the refs that snapshot prints.
 
@@ -24,7 +24,7 @@ snapshot_parser/
   inspect.py     the detail the snapshot deliberately omits
   diff.py        verify-after-action diff
   session.py     session id, snapshot counter, last capture on disk
-  cli.py         the agent-desktop command (20 commands)
+  cli.py         the echo-desktop command (20 commands)
   textparse.py   xwininfo / xprop / xdotool / wmctrl output parsers
   backends/      fixture | windows-uia (pywinauto) | linux-x11 (Xlib + tools)
 
@@ -94,7 +94,7 @@ PASS: every capture is at least half the size after parsing
 * **Performance**: 3000-element tree renders in under 3 s; the Notepad fixture
   in under 1 s.
 * **The 7 skips** are live UI tests. They start their own throwaway editor and
-  close it in teardown; run them on a desktop with `AGENT_DESKTOP_LIVE=1 python
+  close it in teardown; run them on a desktop with `ECHO_LIVE=1 python
   -m pytest tests/test_live_notepad.py`.
 
 ## Known gaps
@@ -125,7 +125,7 @@ PASS: every capture is at least half the size after parsing
 * **No new runtime dependencies.** `pywinauto` and the X11 tools are optional
   extras; the parser, renderer, refs, geometry, inspect and CLI import nothing
   outside the standard library.
-* **Nothing is committed from `.agent-desktop/`** (session state and the last
+* **Nothing is committed from `.echo-desktop/`** (session state and the last
   capture): it is in `.gitignore`, because it describes one machine's screen.
 
 ## Try it in 60 seconds
@@ -136,9 +136,9 @@ python -m pytest -q                                    # 418 passed, 7 skipped
 python tools/check_contract.py                         # R1-R10 on every capture
 python tools/token_count.py                            # size check passes
 
-agent-desktop snapshot --fixture tests/fixtures/notepad_save_dialog.raw.txt
-agent-desktop inspect e45 --fixture tests/fixtures/notepad_save_dialog.raw.txt
-agent-desktop click e45 --dry-run --fixture tests/fixtures/notepad_save_dialog.raw.txt
+echo-desktop snapshot --fixture tests/fixtures/notepad_save_dialog.raw.txt
+echo-desktop inspect e45 --fixture tests/fixtures/notepad_save_dialog.raw.txt
+echo-desktop click e45 --dry-run --fixture tests/fixtures/notepad_save_dialog.raw.txt
 ```
 
 Expected output of the second command:
@@ -151,5 +151,5 @@ Expected output of the second command:
   geometry    x=1180 y=820 w=88 h=32 center=1224,836 window=1180,820
 ```
 
-On a real desktop: `agent-desktop doctor` → `agent-desktop windows` →
-`agent-desktop snapshot` → `agent-desktop click <ref>`.
+On a real desktop: `echo-desktop doctor` → `echo-desktop windows` →
+`echo-desktop snapshot` → `echo-desktop click <ref>`.

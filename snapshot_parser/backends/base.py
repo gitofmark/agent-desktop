@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from .. import naming
 from ..model import Element, Rect, Snapshot
 
 __all__ = [
@@ -172,7 +173,7 @@ def resolve_backend(name: str = "auto", *, snapshot=None) -> Backend:
 
 
 def env_state_dir() -> str:
-    return os.environ.get("AGENT_DESKTOP_STATE", "").strip()
+    return naming.env(naming.ENV_STATE, naming.LEGACY_ENV_STATE)
 
 
 def platform_name() -> str:

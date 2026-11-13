@@ -22,7 +22,7 @@ import pytest
 from snapshot_parser.backends import BackendUnavailable
 from snapshot_parser.model import Snapshot
 
-LIVE = os.environ.get("AGENT_DESKTOP_LIVE", "").strip() in ("1", "true", "yes")
+LIVE = os.environ.get("ECHO_LIVE", "").strip() in ("1", "true", "yes")
 
 
 def _launch_notepad():
@@ -46,7 +46,7 @@ def _launch_notepad():
 def notepad():
     """A throwaway editor window, closed no matter what the test does."""
     if not LIVE:
-        pytest.skip("live UI test: set AGENT_DESKTOP_LIVE=1 on a desktop machine")
+        pytest.skip("live UI test: set ECHO_LIVE=1 on a desktop machine")
     proc, backend_name, title = _launch_notepad()
     if proc is None:
         pytest.skip("no throwaway editor available on this machine (install gedit)")

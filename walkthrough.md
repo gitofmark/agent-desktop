@@ -270,3 +270,45 @@ Xlib and subprocess calls are not.
 | 3 | No step marked done by editing a test | ✅ two tests were *corrected* during the build (the dialog "first line" index, and the `--bounds` placement) and both are recorded in this file with the reason: in each case the assertion was wrong, not the code. No golden was changed to make code pass. |
 | 4 | No dependency added without a note | ✅ runtime dependencies: none. Test-only: `pytest`, `hypothesis`. Optional extras: `pywinauto`/`uiautomation` (Windows), `x11-utils`/`xdotool`/`wmctrl` (Linux). Nothing else is imported. |
 | 5 | Golden files only change with a reason | ✅ five goldens, all created once from section 1 and reviewed by hand; the two deliberate deviations are recorded above and are the only reason the four Notepad goldens differ from the literal example |
+
+## Step 35: renamed `agent-desktop` → `echo-desktop`
+
+**Why.** `agent-desktop` is also an npm package (Vercel Labs, actively released).
+Both it and this project install a launcher called `agent-desktop` into the same
+`bin` directory, and both overwrite without a word. Reproduced with two throwaway
+packages: the second install replaces the first's script body, exits 0, prints
+nothing. Exit order alone decides which tool runs, so a machine with both cannot
+be trusted. A deprecation notice cannot fix this - it only prints if our script is
+the one that runs, which is exactly the case where there is no conflict.
+
+**Names.** `echo-desktop` (command + PyPI dist) · `agent-desktop-py` (alias, one
+release) · `snapshot_parser` (module, untouched - no `import` line changed).
+
+**Deliberately not named `agent-desktop` as the alias.** That would re-install a
+launcher on the contested path, re-creating the race in every install.
+
+**Surface:** a new `snapshot_parser/naming.py` holds every user-visible name, so
+the next rename is one file. Hints, `prog=`, `--help`, error messages and the
+doctor banner all route through it.
+
+**Verified**
+
+| Check | Result |
+| --- | --- |
+| `pytest` | **439 passed** (418 + 21 new), 7 skipped |
+| `tools/check_contract.py` | PASS - goldens unaffected by the rename |
+| `tools/token_count.py` | PASS |
+| installed launchers | `echo-desktop` + `agent-desktop-py`; **no** bare `agent-desktop` |
+| alias notice | stderr only, stdout byte-identical, exit code unchanged |
+| legacy env vars | `AGENT_DESKTOP_*` still honoured, `ECHO_*` wins |
+| state dir upgrade | `.agent-desktop/` → `.echo-desktop/`, session + counter preserved |
+
+**Two bugs the new tests caught:**
+
+1. `os.path.basename` does not split on `\` when running on POSIX, so a
+   Windows-style `argv[0]` (`C:\...\agent-desktop-py.exe`) was never recognised
+   as the alias. Now split on both separators, with `.exe` stripped.
+2. The state migration ran *after* `makedirs`, so the destination already existed
+   and the move was skipped as a would-be clobber - every upgrading user would
+   have silently lost their ref history. Migration now runs first; the
+   end-to-end check above confirms session `oldusersess` continued 7 → 8.

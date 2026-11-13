@@ -1,0 +1,82 @@
+name: release
+
+# Publishing is deliberately tag-driven: pushing a tag like v1.0.0 builds the
+# sdist + wheel, checks them, and uploads to PyPI through Trusted Publishing
+# (OIDC), so no API token ever exists in this repository.
+#
+# One-time setup on PyPI -> Your projects -> echo-desktop -> Publishing:
+#   Add a "pending publisher" (or a trusted publisher after the first upload):
+#     owner        gitofmark
+#     repository   agent-desktop
+#     workflow     release.yml
+#     environment  pypi
+#   Then push a tag. The first publish needs the name to be free on PyPI.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}   # manual run = build + check only, never upload
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build and check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install build tooling
+        run: python -m pip install --upgrade build twine pytest hypothesis
+
+      - name: run the test suite
+        run: python -m pytest -q
+
+      - name: check the contract and size gates
+        run: |
+          python tools/check_contract.py
+          python tools/token_count.py
+
+      - name: build sdist and wheel
+        run: python -m build
+
+      - name: validate metadata
+        run: python -m twine check dist/*
+
+      - name: install the wheel into a clean venv and smoke test it
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/pip install dist/*.whl
+          /tmp/smoke/bin/echo-desktop --version
+          /tmp/smoke/bin/echo-desktop snapshot \
+            --fixture tests/fixtures/notepad.raw.txt | head -3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    # only a tag push publishes; a manual run stops after the checks
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/echo-desktop/
+    permissions:
+      id-token: write        # OIDC token for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        # no password/api-token: trusted publishing authenticates with OIDC

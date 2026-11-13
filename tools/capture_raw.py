@@ -12,7 +12,7 @@ Usage::
 On Windows it uses UI Automation (``pywinauto``); on Linux it uses X11
 (``xwininfo``/``xprop``/``wmctrl``).  The output is the ``agdesk-raw 1`` format
 that :mod:`snapshot_parser.reader` reads back, and it is exactly what
-``agent-desktop`` itself reads, so a capture plus ``--fixture <file>`` gives a
+``echo-desktop`` itself reads, so a capture plus ``--fixture <file>`` gives a
 complete offline reproduction of a live problem.
 
 Nothing here needs the parser to succeed: a window with no accessibility

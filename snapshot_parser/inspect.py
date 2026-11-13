@@ -8,6 +8,9 @@ table of coordinates.
 
 from __future__ import annotations
 
+# hints point at the installed command name
+from .naming import command as _command
+
 from typing import Any, Optional
 
 from .geometry import element_geometry, format_bounds, is_offscreen
@@ -40,14 +43,14 @@ def _validate(ref: str, number: int, session: str, snapshot: Snapshot) -> str:
         raise RefError(
             f"ref '{ref}' is stale: it was taken at snapshot {number}, the current "
             f"snapshot is number {snapshot.number}; the tree changed since then - "
-            "run `agent-desktop snapshot` again and use the new refs",
+            f"run `{_command()} snapshot` again and use the new refs",
             ref=ref,
         )
     if _find(snapshot, parts) is None:
         raise RefError(
             f"unknown ref '{ref}' in snapshot {number} (session "
             f"{session or snapshot.session}); it may have been collapsed by the line "
-            "cap - try `agent-desktop snapshot --full` or `agent-desktop find \"<name>\"`",
+            f"cap - try `{_command()} snapshot --full` or `{_command()} find \"<name>\"`",
             ref=ref,
         )
     return parts
@@ -143,7 +146,7 @@ def format_inspect(snapshot: Snapshot, ref: str,
 
 def read_value(snapshot: Snapshot, ref: str,
                snapshot_number: Optional[int] = None, session: str = "") -> str:
-    """The full text/value of one element (``agent-desktop read``)."""
+    """The full text/value of one element (``read`` on the command line)."""
     number = snapshot.number if snapshot_number is None else snapshot_number
     short = _validate(ref, number, session, snapshot)
     el = _find(snapshot, short)
@@ -158,7 +161,7 @@ def read_value(snapshot: Snapshot, ref: str,
     raise RefError(
         f"element {short} ({el.role} {el.name!r}) has no text"
         + (f" (it reports {raw} chars but no readable value)" if raw else "")
-        + "; try `agent-desktop inspect " + short + "`",
+        + f"; try `{_command()} inspect " + short + "`",
         ref=ref,
     )
 

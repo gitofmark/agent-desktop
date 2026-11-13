@@ -24,9 +24,9 @@ ALL_FIXTURES = [
 
 @pytest.fixture(autouse=True)
 def _session_state_in_tmp(tmp_path, monkeypatch):
-    """Never let a test touch the developer's real .agent-desktop/ state."""
-    monkeypatch.setenv("AGENT_DESKTOP_STATE", str(tmp_path / "state"))
-    monkeypatch.delenv("AGENT_DESKTOP_FIXTURE", raising=False)
+    """Never let a test touch the developer's real .echo-desktop/ state."""
+    monkeypatch.setenv("ECHO_STATE", str(tmp_path / "state"))
+    monkeypatch.delenv("ECHO_FIXTURE", raising=False)
     yield
 
 

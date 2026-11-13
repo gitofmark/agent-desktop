@@ -1,4 +1,4 @@
-"""Steps 31-34: the agent-desktop CLI, against fixtures and a fake desktop.
+"""Steps 31-34: the echo-desktop CLI, against fixtures and a fake desktop.
 
 Fixture tests need no screen at all, which is what makes the CLI testable in
 CI.  The fake backend tests exercise the Act half: refs, dry-run, verify diff,
@@ -52,7 +52,7 @@ def test_help_lists_every_command():
 def test_version():
     code, out, err = run_cli("--version")
     assert code == 0
-    assert "agent-desktop" in out
+    assert "echo-desktop" in out
 
 
 def test_no_command_prints_help_and_exits_2():
@@ -491,3 +491,27 @@ def test_refs_are_handles_into_the_snapshot_you_last_printed(tmp_path):
     code, out, err = run_cli("click", "@other:e6", "--dry-run", "--fixture", str(capture))
     assert code == 3
     assert "session" in err
+
+
+def test_doctor_runs_even_when_no_backend_is_available():
+    """Regression: `doctor` is the command that explains a broken setup.
+
+    On a machine with no fixture, no display and no UIA it used to exit 1 inside
+    make_context, so the one diagnostic you reach for was the one thing that
+    could not run.
+    """
+    import os
+
+    from snapshot_parser.cli import main
+
+    # --shared options go after the subcommand, which is where they live
+    saved = {k: os.environ.pop(k, None) for k in ("DISPLAY", "ECHO_FIXTURE", "AGENT_DESKTOP_FIXTURE")}
+    try:
+        assert main(["doctor"]) == 0, "doctor must report, not fail"
+        out = main(["doctor", "--backend", "linux-x11", "--json"])
+        assert out == 0
+    finally:
+        for key, value in saved.items():
+            if value is not None:
+                os.environ[key] = value
+        os.environ.pop("ECHO_STATE", None)

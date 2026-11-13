@@ -14,7 +14,7 @@ Two layers:
    geometry, ``wmctrl`` provides pids and titles.
 
 If no tool is installed the backend still reports windows from Xlib and
-renders a one-line snapshot of the window itself; ``agent-desktop doctor``
+renders a one-line snapshot of the window itself; ``echo-desktop doctor``
 says what to install.  AT-SPI (``pyatspi``) is used instead when present,
 because it gives real accessible names and roles.
 
@@ -512,7 +512,7 @@ class LinuxX11Backend(Backend):
         if handle is None:
             return ActionResult(False, action, element.ref, "",
                                 f"{element.ref} is not from the current X11 snapshot; "
-                                "run `agent-desktop snapshot` again")
+                                "run `echo-desktop snapshot` again")
         x, y = element.rect.center
         try:
             if action in ("click", "double click", "right click"):

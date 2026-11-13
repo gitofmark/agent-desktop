@@ -3,7 +3,7 @@
 A snapshot is only useful if the *next* command can talk about it, and every
 CLI call is a new process.  This module keeps a tiny piece of state on disk::
 
-    .agent-desktop/
+    .echo-desktop/
       state.json      session id, snapshot counter, selected window, backend
       last.raw.txt    the last snapshot, in the native raw format
       prev.raw.txt    the one before it, for ``diff``
@@ -25,11 +25,14 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from . import naming
 from .model import Snapshot
 from .reader import ReaderError, parse_raw_text, render_raw_text
 
 __all__ = [
     "STATE_DIR_NAME",
+    "LEGACY_STATE_DIR_NAME",
+    "_migrate_legacy_state",
     "SessionState",
     "new_session_id",
     "state_dir",
@@ -38,7 +41,8 @@ __all__ = [
     "clear_state",
 ]
 
-STATE_DIR_NAME = ".agent-desktop"
+STATE_DIR_NAME = naming.STATE_DIR_NAME
+LEGACY_STATE_DIR_NAME = naming.LEGACY_STATE_DIR_NAME
 _ALPHABET = string.ascii_lowercase + string.digits
 
 
@@ -48,11 +52,33 @@ def new_session_id(length: int = 10) -> str:
 
 
 def state_dir(create: bool = True) -> str:
-    override = os.environ.get("AGENT_DESKTOP_STATE", "").strip()
+    """Where session state lives: ``$ECHO_STATE``, else ``./.echo-desktop``.
+
+    A pre-rename ``./.agent-desktop/`` is migrated on first use so an existing
+    user keeps their ref history instead of silently losing it.
+    """
+    override = naming.env(naming.ENV_STATE, naming.LEGACY_ENV_STATE)
     path = override or os.path.join(os.getcwd(), STATE_DIR_NAME)
     if create:
+        if not override:
+            # migrate *before* creating, or the destination exists and the move
+            # is skipped as a clobber - which silently dropped every ref history
+            _migrate_legacy_state(os.getcwd())
         os.makedirs(path, exist_ok=True)
     return path
+
+
+def _migrate_legacy_state(base: str) -> Optional[str]:
+    """Move ``./.agent-desktop/`` to ``./.echo-desktop/`` once. Returns the path moved."""
+    old = os.path.join(base, LEGACY_STATE_DIR_NAME)
+    new = os.path.join(base, STATE_DIR_NAME)
+    if not os.path.isdir(old) or os.path.exists(new):
+        return None
+    try:
+        os.rename(old, new)
+    except OSError:
+        return None
+    return new
 
 
 @dataclass
@@ -200,7 +226,7 @@ class SessionState:
             f"ref '{ref}' is stale: it meant [{role}] {name or '(unnamed)'!r} when "
             f"it was printed, but the tree has changed and it now means "
             f"[{element.role}] {element.name or '(unnamed)'!r}; run "
-            "`agent-desktop snapshot` and use the refs it prints",
+            f"`{naming.command()} snapshot` and use the refs it prints",
             ref=ref,
         )
 

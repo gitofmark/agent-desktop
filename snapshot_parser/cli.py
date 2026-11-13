@@ -1,27 +1,27 @@
-"""``agent-desktop``: read and act on a window through the minimal snapshot.
+"""``echo-desktop``: read and act on a window through the minimal snapshot.
 
 Read
 ----
-    agent-desktop windows                    list open windows
-    agent-desktop snapshot [--bounds]        print the minimal snapshot
-    agent-desktop inspect <ref>              full detail for one element
-    agent-desktop bounds <ref>               just the geometry
-    agent-desktop find "<text>" [--role r]   find refs without printing the tree
-    agent-desktop read <ref>                 full text/value of one element
-    agent-desktop diff                       what changed since the last snapshot
+    echo-desktop windows                    list open windows
+    echo-desktop snapshot [--bounds]        print the minimal snapshot
+    echo-desktop inspect <ref>              full detail for one element
+    echo-desktop bounds <ref>               just the geometry
+    echo-desktop find "<text>" [--role r]   find refs without printing the tree
+    echo-desktop read <ref>                 full text/value of one element
+    echo-desktop diff                       what changed since the last snapshot
 
 Act
 ---
-    agent-desktop click <ref> [--double] [--right]
-    agent-desktop click-at <x> <y> [--double] [--right]
-    agent-desktop type <ref> "<text>"
-    agent-desktop set-value <ref> "<text>"
-    agent-desktop focus <ref>
-    agent-desktop scroll <ref> --down 3
-    agent-desktop expand <ref> / collapse <ref>
-    agent-desktop key "<combo>"
-    agent-desktop move-window <x> <y> / resize-window <w> <h>
-    agent-desktop wait <ref-or-text> --timeout 5
+    echo-desktop click <ref> [--double] [--right]
+    echo-desktop click-at <x> <y> [--double] [--right]
+    echo-desktop type <ref> "<text>"
+    echo-desktop set-value <ref> "<text>"
+    echo-desktop focus <ref>
+    echo-desktop scroll <ref> --down 3
+    echo-desktop expand <ref> / collapse <ref>
+    echo-desktop key "<combo>"
+    echo-desktop move-window <x> <y> / resize-window <w> <h>
+    echo-desktop wait <ref-or-text> --timeout 5
 
 Every command takes ``--json``; every Act command takes ``--dry-run`` and
 prints a verify diff unless ``--no-verify`` is given.
@@ -41,6 +41,8 @@ from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
 from . import __version__
+from . import naming
+from .naming import ALIAS, PROG
 from .backends import Backend, BackendUnavailable, resolve_backend
 from .backends.base import WindowInfo
 from .diff import format_diff, diff_snapshots
@@ -176,7 +178,7 @@ class Context:
             raise CliError(
                 f"unknown ref '{ref}' in snapshot {snapshot.number} "
                 f"(session {self.session}); it may have been collapsed by the line "
-                'cap - try `agent-desktop snapshot --full` or `agent-desktop find "<name>"`',
+                'cap - try `echo-desktop snapshot --full` or `echo-desktop find "<name>"`',
                 EXIT_STALE_REF,
             )
         return parts.short
@@ -202,7 +204,7 @@ def make_context(args: argparse.Namespace) -> Context:
     backend_name = getattr(args, "backend", "auto") or "auto"
     fixture = getattr(args, "fixture", None)
     if fixture and backend_name in ("auto", "fixture"):
-        os.environ["AGENT_DESKTOP_FIXTURE"] = fixture
+        os.environ[naming.ENV_FIXTURE] = fixture
         backend_name = "fixture"
     if backend_name == "auto" and fixture:
         backend_name = "fixture"
@@ -216,7 +218,10 @@ def make_context(args: argparse.Namespace) -> Context:
         backend.path = fixture  # type: ignore[attr-defined]
     ok, why = backend.available()
     if not ok:
-        raise CliError(why, EXIT_ERROR)
+        # `doctor` exists to explain exactly this situation, so it must not fail
+        # with it: it reports per-backend availability itself.
+        if getattr(args, "command", "") != "doctor":
+            raise CliError(why, EXIT_ERROR)
     return Context(args=args, state=state, backend=backend, use_state=use_state)
 
 
@@ -356,7 +361,7 @@ def cmd_find(ctx: Context) -> int:
                    "session": snapshot.session})
         return EXIT_OK
     if not matches:
-        emit(f'no element matches "{ctx.args.text}"; try `agent-desktop snapshot`')
+        emit(f'no element matches "{ctx.args.text}"; try `echo-desktop snapshot`')
         return EXIT_ERROR
     for row in matches:
         extra = " - " + ", ".join(row["state"]) if row["state"] else ""
@@ -733,7 +738,7 @@ def cmd_doctor(ctx: Context) -> int:
     if ctx.json:
         emit_json(payload)
         return EXIT_OK
-    emit(f"agent-desktop {__version__} on {sys.platform}")
+    emit(f"{PROG} {__version__} on {sys.platform}")
     emit(f"backend in use: {ctx.backend.name}")
     for row in checks:
         mark = "ok  " if row["available"] else "no  "
@@ -757,13 +762,16 @@ ACT_COMMANDS = {"click", "click-at", "type", "set-value", "focus", "scroll",
 EPILOG = """exit codes: 0 ok, 1 general error, 2 bad arguments, 3 stale or unknown ref,
             4 window not found, 5 action failed
 
+the old name ``agent-desktop-py`` still works for one release and prints a
+notice on stderr; it is removed in 1.1
+
 examples:
-  agent-desktop windows
-  agent-desktop snapshot
-  agent-desktop bounds e10
-  agent-desktop click e10 --dry-run
-  agent-desktop click e10
-  agent-desktop --fixture tests/fixtures/notepad.raw.txt snapshot
+  echo-desktop windows
+  echo-desktop snapshot
+  echo-desktop bounds e10
+  echo-desktop click e10 --dry-run
+  echo-desktop click e10
+  echo-desktop --fixture tests/fixtures/notepad.raw.txt snapshot
 """
 
 
@@ -777,7 +785,7 @@ def _common(parser: argparse.ArgumentParser, *, act: bool = False) -> None:
     parser.add_argument("--fixture", metavar="FILE",
                         help="read the tree from a captured raw dump instead of a desktop")
     parser.add_argument("--no-state", action="store_true",
-                        help="do not read or write .agent-desktop/ session state")
+                        help=f"do not read or write {naming.STATE_DIR_NAME}/ session state")
     if act:
         parser.add_argument("--dry-run", action="store_true",
                             help="print what would happen and do nothing")
@@ -789,12 +797,12 @@ def _common(parser: argparse.ArgumentParser, *, act: bool = False) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="agent-desktop",
+        prog=PROG,
         description="Minimal natural snapshots of a desktop window, plus actions on refs.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--version", action="version", version=f"agent-desktop {__version__}")
+    parser.add_argument("--version", action="version", version=f"{PROG} {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
     p = subparsers.add_parser("windows", help="list open windows")
@@ -922,6 +930,8 @@ def build_parser() -> argparse.ArgumentParser:
 # entry point
 # --------------------------------------------------------------------------
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    naming.set_executable(sys.argv[0] if sys.argv else "")
+    naming.warn_alias()
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     if not getattr(args, "command", None):
@@ -971,9 +981,9 @@ def _report(args: argparse.Namespace, message: str, exit_code: int) -> None:
         return
     hint = ""
     if exit_code == EXIT_STALE_REF:
-        hint = " (run `agent-desktop snapshot` and use the refs it prints)"
+        hint = " (run `echo-desktop snapshot` and use the refs it prints)"
     elif exit_code == EXIT_NO_WINDOW:
-        hint = " (run `agent-desktop windows` to see what is open)"
+        hint = " (run `echo-desktop windows` to see what is open)"
     sys.stderr.write(f"! {message}{hint}\n")
 
 
