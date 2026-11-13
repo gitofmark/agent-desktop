@@ -204,7 +204,7 @@ def make_context(args: argparse.Namespace) -> Context:
     backend_name = getattr(args, "backend", "auto") or "auto"
     fixture = getattr(args, "fixture", None)
     if fixture and backend_name in ("auto", "fixture"):
-        os.environ["AGENT_DESKTOP_FIXTURE"] = fixture
+        os.environ[naming.ENV_FIXTURE] = fixture
         backend_name = "fixture"
     if backend_name == "auto" and fixture:
         backend_name = "fixture"
@@ -218,7 +218,10 @@ def make_context(args: argparse.Namespace) -> Context:
         backend.path = fixture  # type: ignore[attr-defined]
     ok, why = backend.available()
     if not ok:
-        raise CliError(why, EXIT_ERROR)
+        # `doctor` exists to explain exactly this situation, so it must not fail
+        # with it: it reports per-backend availability itself.
+        if getattr(args, "command", "") != "doctor":
+            raise CliError(why, EXIT_ERROR)
     return Context(args=args, state=state, backend=backend, use_state=use_state)
 
 

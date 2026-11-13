@@ -126,7 +126,8 @@ note: `agent-desktop-py` is now `echo-desktop` (this alias is removed in 1.1)
 ```
 
 The notice goes to **stderr**, so `--json` output on stdout stays parseable.
-See [MIGRATION.md](MIGRATION.md) if you are upgrading.
+See [MIGRATION.md](MIGRATION.md) if you are upgrading, and
+[PUBLISHING.md](PUBLISHING.md) for releases.
 
 ## Commands
 

@@ -9,6 +9,31 @@ description = "ECHO desktop accessibility snapshot parser + echo-desktop CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
+authors = [{ name = "gitofmark" }]
+license = { file = "LICENSE" }
+keywords = ["accessibility", "uia", "desktop", "automation", "computer-use", "agent", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: X11 Applications",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/gitofmark/agent-desktop"
+Repository = "https://github.com/gitofmark/agent-desktop"
+Issues = "https://github.com/gitofmark/agent-desktop/issues"
+Changelog = "https://github.com/gitofmark/agent-desktop/blob/main/walkthrough.md"
 
 [project.optional-dependencies]
 windows = ["pywinauto>=0.6.8", "uiautomation>=2.0.18"]
