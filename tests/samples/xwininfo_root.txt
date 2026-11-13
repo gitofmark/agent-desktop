@@ -1,0 +1,27 @@
+xwininfo: Window id: 0x6b5 (the root window) (has no name)
+
+  Absolute upper-left X:  0
+  Absolute upper-left Y:  0
+  Width: 1920
+  Height: 1080
+  Depth: 24
+  Visual: 0x2b6
+  Visual Class: TrueColor
+  Border width: 0
+  Class: InputOutput
+  Colormap: 0x20 (installed)
+  Bit Gravity State: NorthWestGravity
+  Window Gravity State: NorthWestGravity
+  Backing Store State: NotUseful
+  Save Under State: no
+  Map State: IsViewable
+  Override Redirect State: no
+  Corners:  +0+0  -0+0  +0-0  -0-0
+  -geometry 1920x1080+0+0
+
+  Child window:
+     2 children:
+     0x400001 "Terminal": ("xterm" "XTerm")  640x400+40+60  +40+60
+     0x3e000007 "gedit": ("gedit" "Gedit")  800x600+120+80  +120+80
+        5 children:
+        0x3e000010 "gedit": ("gedit" "Gedit")  800x600+0+0  +120+80

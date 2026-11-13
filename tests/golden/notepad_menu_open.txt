@@ -1,0 +1,8 @@
+Notepad — "snap.js - Notepad"  (snapshot 3, session local)
+
+[window] snap.js - Notepad e1 — maximized
+[window_button] Minimize e4 · Maximize e5 · Close e6
+[menuitem] File e8 — expanded, New e30, New window e31, Open... e33, Save e34, Save as... e35, Page setup... e37, Print... e38, Exit e40
+[menu] Edit e9 · Format e10 · View e11 · Help e12
+[edit] Text Editor e13 — focused, 2340 chars, 71 lines, starts "const snap = render(snapshot); const lines = snap.split('\n'); for (const line o..."
+[text] Ln 62, Col 45 e20

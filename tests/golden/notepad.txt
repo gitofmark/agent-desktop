@@ -1,0 +1,8 @@
+Notepad — "Untitled - Notepad"  (snapshot 1, session local)
+
+[window] Untitled - Notepad e1 — maximized
+[window_button] Minimize e4 · Maximize e5 · Close e6
+[menu] File e8 · Edit e9 · Format e10 · View e11 · Help e12
+[edit] Text Editor e13 — focused, 0 chars
+[scrollbar] Vertical e14 — line up e15, page up e16, page down e17, line down e18
+[text] Ln 1, Col 1 e20

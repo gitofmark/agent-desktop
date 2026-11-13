@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# local test/scratch output
+tmp_tests/
+*.log
+
+# agent-desktop runtime state (never commit: contains per-machine window state)
+.agent-desktop/
+*.state.json
+
+# secrets / credentials - never commit
+.env
+.env.*
+*.key
+*.pem
+secrets.json
