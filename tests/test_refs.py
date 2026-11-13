@@ -90,7 +90,7 @@ def test_stale_snapshot_ref_is_rejected():
     message = str(exc.value)
     assert "snapshot 5" in message and "number 6" in message
     assert "stale" in message
-    assert "agent-desktop snapshot" in message
+    assert "echo-desktop snapshot" in message
     assert exc.value.exit_code == 3
 
 
@@ -155,7 +155,7 @@ def test_a_ref_that_now_means_something_else_is_rejected():
     message = str(exc.value)
     assert "stale" in message
     assert "Close" in message and "Save" in message
-    assert "agent-desktop snapshot" in message
+    assert "echo-desktop snapshot" in message
 
 
 def test_a_ref_with_the_same_identity_still_works():

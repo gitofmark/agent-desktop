@@ -7,6 +7,9 @@ to a snapshot that has moved on.
 
 from __future__ import annotations
 
+# hints point at the installed command name
+from .naming import command as _command
+
 import re
 from dataclasses import dataclass
 from typing import Iterable, Optional, Sequence
@@ -51,13 +54,16 @@ class RefParts:
 def parse_ref(ref: str) -> RefParts:
     """Split ``@sess:e10`` / ``e10`` into its parts. Raises :class:`RefError`."""
     if ref is None or not str(ref).strip():
-        raise RefError("empty ref; try `agent-desktop snapshot` and use the refs it prints", ref="")
+        raise RefError(
+            f"empty ref; try `{_command()} snapshot` and use the refs it prints",
+            ref="",
+        )
     text = str(ref).strip()
     match = _SHORT_RE.match(text)
     if not match:
         raise RefError(
             f"'{text}' is not a ref; refs look like e12 or @session:e12 "
-            "(run `agent-desktop snapshot` to get them)",
+            f"(run `{_command()} snapshot` to get them)",
             ref=text,
         )
     return RefParts(
@@ -124,7 +130,7 @@ def validate_ref(
         raise RefError(
             f"ref '{ref}' is stale: it was taken at snapshot {snapshot_number}, the "
             f"current snapshot is number {current}; the tree changed since then - "
-            "run `agent-desktop snapshot` again and use the new refs",
+            f"run `{_command()} snapshot` again and use the new refs",
             ref=ref,
         )
     if snapshot is not None:
@@ -132,7 +138,7 @@ def validate_ref(
             raise RefError(
                 f"unknown ref '{ref}' in snapshot {current} (session {current_session}); "
                 "it may have been collapsed by the line cap - try "
-                f"`agent-desktop snapshot --full` or `agent-desktop find \"<name>\"`",
+                f"`{_command()} snapshot --full` or `{_command()} find \"<name>\"`",
                 ref=ref,
             )
     return parts.short

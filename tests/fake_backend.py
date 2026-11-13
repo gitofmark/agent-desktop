@@ -66,7 +66,7 @@ class FakeBackend(Backend):
     def snapshot(self, window: Any = None, *, session: str = "local",
                  number: int = 1) -> Snapshot:
         if self.window.closed:
-            raise BackendUnavailable("that window closed; run `agent-desktop windows`")
+            raise BackendUnavailable("that window closed; run `echo-desktop windows`")
         self.snapshot_count += 1
         w = self.window
         snap = Snapshot(app=w.app, title=w.title, number=number, session=session,

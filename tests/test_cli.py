@@ -1,4 +1,4 @@
-"""Steps 31-34: the agent-desktop CLI, against fixtures and a fake desktop.
+"""Steps 31-34: the echo-desktop CLI, against fixtures and a fake desktop.
 
 Fixture tests need no screen at all, which is what makes the CLI testable in
 CI.  The fake backend tests exercise the Act half: refs, dry-run, verify diff,
@@ -52,7 +52,7 @@ def test_help_lists_every_command():
 def test_version():
     code, out, err = run_cli("--version")
     assert code == 0
-    assert "agent-desktop" in out
+    assert "echo-desktop" in out
 
 
 def test_no_command_prints_help_and_exits_2():

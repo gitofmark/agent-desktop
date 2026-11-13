@@ -43,7 +43,7 @@ class BrokenBackend(Backend):
         snap = Snapshot(app="App", title="T", session=session, number=number)
         if self.mode == "denied":
             snap.error = ("access denied: that window runs elevated - restart "
-                          "agent-desktop as administrator")
+                          "echo-desktop as administrator")
         elif self.mode == "empty":
             snap.root = Element(ref="e1", role="window", name="", visible=False)
             snap.root.children = []

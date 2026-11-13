@@ -8,7 +8,7 @@ There are two raw inputs:
 
 | Input | Who writes it | Parser entry point |
 | --- | --- | --- |
-| `agdesk-raw 1` text | `tools/capture_raw.py`, `agent-desktop` state dir | `reader.parse_raw_text` |
+| `agdesk-raw 1` text | `tools/capture_raw.py`, `echo-desktop` state dir | `reader.parse_raw_text` |
 | UIA JSON (legacy) | the first Windows dumper | `reader.parse_raw_json` |
 
 The text format is the primary one: a fixture diff is readable in a PR review,

@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agent-desktop"
+name = "echo-desktop"
 version = "1.0.0"
-description = "ECHO desktop accessibility snapshot parser + agent-desktop CLI"
+description = "ECHO desktop accessibility snapshot parser + echo-desktop CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
@@ -15,7 +15,8 @@ windows = ["pywinauto>=0.6.8", "uiautomation>=2.0.18"]
 dev = ["pytest>=8", "hypothesis>=6"]
 
 [project.scripts]
-agent-desktop = "snapshot_parser.cli:main"
+echo-desktop = "snapshot_parser.cli:main"
+agent-desktop-py = "snapshot_parser.cli:main"
 
 [tool.setuptools]
 packages = ["snapshot_parser", "snapshot_parser.backends"]

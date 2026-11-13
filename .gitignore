@@ -15,7 +15,8 @@ venv/
 tmp_tests/
 *.log
 
-# agent-desktop runtime state (never commit: contains per-machine window state)
+# echo-desktop runtime state (never commit: contains per-machine window state)
+.echo-desktop/
 .agent-desktop/
 *.state.json
 

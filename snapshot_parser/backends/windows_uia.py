@@ -257,7 +257,7 @@ def _readable(exc: BaseException) -> str:
     if "ElementNotAvailable" in exc.__class__.__name__ or "0x80040201" in text:
         return "the window closed or changed while it was being read"
     if "AccessDenied" in exc.__class__.__name__ or "0x80070005" in text:
-        return "access denied: that window runs elevated - restart agent-desktop as administrator"
+        return "access denied: that window runs elevated - restart echo-desktop as administrator"
     if "0x80131505" in text or "timeout" in text.lower():
         return "the app did not answer the accessibility request (it may be busy or hung)"
     return f"UI Automation error: {text}"[:300]

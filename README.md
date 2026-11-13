@@ -1,14 +1,14 @@
-# agent-desktop
+# echo-desktop
 
 **The minimal natural snapshot of a window, and actions on the refs it prints.**
 
 A screen is a bad interface for an agent: an accessibility tree is thousands of
 nodes, most of them invisible, and a screenshot costs a fortune in tokens.
-`agent-desktop` reads the tree once and prints a short, stable, human-readable
+`echo-desktop` reads the tree once and prints a short, stable, human-readable
 summary that keeps the one thing an agent needs - a **ref** it can act on:
 
 ```
-$ agent-desktop snapshot
+$ echo-desktop snapshot
 
 Notepad — "snap.js - Notepad"  (snapshot 4, session syzqsppsg5kob)
 
@@ -24,13 +24,13 @@ Eleven times smaller than the raw tree on Notepad, ~80% smaller on real apps,
 and every ref in it is clickable:
 
 ```
-$ agent-desktop bounds e6
+$ echo-desktop bounds e6
 Close e6 @ 1764,8 46x32  center 1787,24  win 1764,8
 
-$ agent-desktop click e6 --dry-run
+$ echo-desktop click e6 --dry-run
 dry run: would click e6 at 1787,24 - nothing was changed
 
-$ agent-desktop click e6
+$ echo-desktop click e6
 clicked Close e6
 - Close e6
 - snap.js - Notepad e1 (background)
@@ -59,21 +59,21 @@ Python 3.10+. No runtime dependencies for the parser, the renderer or the CLI;
 ## Quick start
 
 ```bash
-agent-desktop doctor          # what this machine can actually read
-agent-desktop windows         # open windows, with position and size
-agent-desktop snapshot        # the minimal snapshot of the foreground window
-agent-desktop snapshot --bounds
-agent-desktop inspect e13     # everything the snapshot leaves out
-agent-desktop find "save" --role button
-agent-desktop click e6
+echo-desktop doctor          # what this machine can actually read
+echo-desktop windows         # open windows, with position and size
+echo-desktop snapshot        # the minimal snapshot of the foreground window
+echo-desktop snapshot --bounds
+echo-desktop inspect e13     # everything the snapshot leaves out
+echo-desktop find "save" --role button
+echo-desktop click e6
 ```
 
 Offline, with a capture instead of a desktop:
 
 ```bash
 python tools/capture_raw.py --window Notepad -o notepad.raw.txt
-agent-desktop --fixture notepad.raw.txt snapshot
-agent-desktop --fixture notepad.raw.txt click e5 --dry-run
+echo-desktop --fixture notepad.raw.txt snapshot
+echo-desktop --fixture notepad.raw.txt click e5 --dry-run
 ```
 
 ## The output contract
@@ -101,8 +101,32 @@ agent-desktop --fixture notepad.raw.txt click e5 --dry-run
 
   ```
   ! ref 'e6' is stale: it was taken at snapshot 1, the current snapshot is
-    number 2; the tree changed since then - run `agent-desktop snapshot` again
+    number 2; the tree changed since then - run `echo-desktop snapshot` again
   ```
+
+## Names
+
+Three different things, deliberately not the same:
+
+| Thing | Name |
+| --- | --- |
+| Command you type, and the PyPI distribution | `echo-desktop` |
+| Python module (unchanged by the rename) | `snapshot_parser` |
+| Deprecated command, removed in 1.1 | `agent-desktop-py` |
+
+The project was originally installed as `agent-desktop`. That name is taken on
+npm by an unrelated Node package that also installs a binary called
+`agent-desktop`; two package managers writing one bin path is a silent
+last-writer-wins race, so the command was renamed. `agent-desktop-py` exists for
+one release so existing scripts keep working, and it prints a notice on stderr:
+
+```
+$ agent-desktop-py snapshot
+note: `agent-desktop-py` is now `echo-desktop` (this alias is removed in 1.1)
+```
+
+The notice goes to **stderr**, so `--json` output on stdout stays parseable.
+See [MIGRATION.md](MIGRATION.md) if you are upgrading.
 
 ## Commands
 
@@ -187,7 +211,7 @@ geometry.py  centre point, window-relative box, offscreen, DPI
 inspect.py   the details the snapshot omits
 diff.py      verify-after-action diff
 session.py   session id, snapshot counter, last capture on disk
-cli.py       the agent-desktop command
+cli.py       the echo-desktop command
 backends/    fixture | windows-uia | linux-x11
 ```
 
@@ -200,7 +224,7 @@ backends/    fixture | windows-uia | linux-x11
 | `linux-x11` | Linux | window geometry from Xlib, element tree from `xwininfo`, input from `xdotool`, pids from `wmctrl` |
 
 `auto` (the default) picks the live desktop, then falls back to a fixture if
-`--fixture`/`AGENT_DESKTOP_FIXTURE` is set. `agent-desktop doctor` explains what
+`--fixture`/`ECHO_FIXTURE` is set. `echo-desktop doctor` explains what
 is missing on this machine, e.g.:
 
 ```
@@ -236,7 +260,7 @@ backend in use: fixture
 
 ```bash
 python -m pytest -q                      # 350+ tests, no desktop needed
-python -m pytest tests/test_live_notepad.py -q   # needs AGENT_DESKTOP_LIVE=1
+python -m pytest tests/test_live_notepad.py -q   # needs ECHO_LIVE=1
 python tools/token_count.py              # size check, exits non-zero on failure
 python tools/capture_raw.py --list       # what can be captured here
 ```

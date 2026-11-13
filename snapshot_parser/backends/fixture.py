@@ -12,6 +12,7 @@ import copy
 import os
 from typing import Any, Optional
 
+from .. import naming
 from ..geometry import center
 from ..model import Element, Snapshot
 from ..reader import ReaderError, read_snapshot
@@ -33,7 +34,7 @@ class FixtureBackend(Backend):
     interactive = False
 
     def __init__(self, path: Optional[str] = None) -> None:
-        self.path = path or os.environ.get("AGENT_DESKTOP_FIXTURE") or ""
+        self.path = path or naming.env(naming.ENV_FIXTURE, naming.LEGACY_ENV_FIXTURE)
         self._snapshot: Optional[Snapshot] = None
         #: every simulated action, so a test can assert what would have run
         self.performed: list[dict] = []
@@ -41,7 +42,7 @@ class FixtureBackend(Backend):
     def available(self) -> tuple[bool, str]:
         if not self.path:
             return False, (
-                "no fixture selected; set --fixture or AGENT_DESKTOP_FIXTURE, "
+                f"no fixture selected; set --fixture or {naming.ENV_FIXTURE}, "
                 "or run on Windows/Linux with a desktop"
             )
         if not os.path.exists(self.path):
