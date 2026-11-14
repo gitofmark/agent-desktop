@@ -44,7 +44,7 @@ echo-desktop = "snapshot_parser.cli:main"
 agent-desktop-py = "snapshot_parser.cli:main"
 
 [tool.setuptools]
-packages = ["snapshot_parser", "snapshot_parser.backends"]
+packages = ["snapshot_parser", "snapshot_parser.backends", "snapshot_parser.apps"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

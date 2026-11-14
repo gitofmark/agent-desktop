@@ -126,6 +126,14 @@ class Backend:
     def resize_window(self, window: Any, width: int, height: int) -> None:
         raise BackendUnavailable(f"the {self.name} backend cannot resize windows")
 
+    def launch(self, command: str) -> int:
+        """Start a program and return its pid. Backends without live windows refuse."""
+        raise BackendUnavailable(f"the {self.name} backend cannot launch programs")
+
+    def focus_window(self, window: Any) -> None:
+        """Bring a window to the foreground so typed keys land in it."""
+        raise BackendUnavailable(f"the {self.name} backend cannot focus windows")
+
     def close(self) -> None:
         pass
 

@@ -431,6 +431,32 @@ class WindowsUiaBackend(Backend):
 
         keyboard.send_keys(_combo_to_pywinauto(combo))
 
+    def launch(self, command: str) -> int:
+        """Start a program. Returns the pid so the caller can wait for its window."""
+        import subprocess
+
+        if not command.strip():
+            raise BackendUnavailable("launch needs a program to start")
+        try:
+            process = subprocess.Popen(command, shell=True)
+        except OSError as exc:
+            raise BackendUnavailable(f"cannot start '{command}': {exc}") from None
+        return int(process.pid)
+
+    def focus_window(self, window: Any) -> None:
+        """Foreground a window: keys go to whatever has focus, so this must be explicit."""
+        win = self._pick_window(window)
+        try:
+            win.set_focus()
+        except Exception as exc:
+            # a minimised window must be restored before it can take focus
+            try:
+                win.restore()
+                win.set_focus()
+            except Exception:
+                raise BackendUnavailable(
+                    f"cannot focus that window: {_readable(exc)}") from None
+
     def move_window(self, window: Any, x: int, y: int) -> None:
         self._pick_window(window).move_window(x=x, y=y)
 
@@ -486,9 +512,37 @@ def _app_name(control) -> str:
         return ""
 
 
+#: Names for keys whose character is not typeable as itself.
+_KEY_NAMES = {
+    "enter": "{ENTER}", "return": "{ENTER}", "tab": "{TAB}", "esc": "{ESC}",
+    "escape": "{ESC}", "del": "{DELETE}", "delete": "{DELETE}",
+    "space": "{SPACE}", "backspace": "{BACKSPACE}", "bksp": "{BACKSPACE}",
+    "break": "{BREAK}", "capslock": "{CAPSLOCK}", "ins": "{INSERT}",
+    "insert": "{INSERT}", "home": "{HOME}", "end": "{END}",
+    "pageup": "{PGUP}", "pgup": "{PGUP}", "pagedown": "{PGDN}", "pgdn": "{PGDN}",
+    "up": "{UP}", "down": "{DOWN}", "left": "{LEFT}", "right": "{RIGHT}",
+    "plus": "+", "add": "+", "minus": "-", "subtract": "-",
+    "multiply": "*", "divide": "/", "equal": "=", "equals": "=",
+    "comma": ",", "period": ".", "dot": ".", "slash": "/", "backslash": "\\",
+    "semicolon": ";", "quote": "'", "apostrophe": "'",
+    "grave": "`", "backtick": "`", "leftbracket": "[", "rightbracket": "]",
+    "tab_key": "{TAB}", "printscreen": "{PRTSC}", "prtsc": "{PRTSC}",
+}
+
+
 def _combo_to_pywinauto(combo: str) -> str:
-    """``ctrl+shift+s`` -> ``^+s`` (the syntax pywinauto wants)."""
-    parts = [p.strip().lower() for p in str(combo or "").split("+") if p.strip()]
+    """``ctrl+shift+s`` -> ``^+s`` (the syntax pywinauto wants).
+
+    Named keys cover the aliases a caller is likely to type (``plus``, ``pagedown``,
+    ``backspace``) rather than only the ones pywinauto happens to spell. A literal
+    ``+`` still works as a separator, so ``ctrl++`` means ctrl and plus.
+    """
+    text = str(combo or "")
+    # a trailing/leading '+' is the plus key, not a separator: ctrl++ is ctrl+plus
+    plus_key = text.strip().endswith("++") or text.strip().startswith("++")
+    if plus_key:
+        text = text.replace("++", "+plus+")
+    parts = [p.strip().lower() for p in text.split("+") if p.strip()]
     prefix = ""
     key = ""
     for part in parts:
@@ -512,8 +566,15 @@ def _combo_to_pywinauto(combo: str) -> str:
             key = "{SPACE}"
         elif part.startswith("f") and part[1:].isdigit():
             key = "{" + part.upper() + "}"
-        else:
+        elif part in _KEY_NAMES:
+            key = _KEY_NAMES[part]
+        elif len(part) == 1:
             key = part
+        else:
+            # an unknown *word* is a typo, not a key: say so instead of typing it
+            raise ValueError(
+                f"unknown key '{part}'; use a single character, ctrl/shift/alt, "
+                f"or one of: {', '.join(sorted(_KEY_NAMES))}")
     return prefix + key
 
 
@@ -677,34 +738,87 @@ class UiaSession:
             return None
 
     def locate(self, element: Element):
-        """Find the live control behind a ref.
+        """Find the live control behind a ref, most specific evidence first.
 
-        The ref map is per snapshot, so it is only valid for the tree it came
-        from; ``cli`` refuses stale refs before asking, and this is the last
-        line of defence.  The name fallback is deliberately strict: same name
-        *and* same role, and exactly one match - guessing between two buttons
-        called "OK" is how the wrong thing gets clicked.
+        A ref is only valid for the tree it came from, so this runs in the same
+        process as the read.  The order matters: the *stable* identity of a
+        control is its automation id plus its role, because dialogs are rebuilt
+        between reads and their runtime ids change.  Matching on a display name
+        is the last resort - "OK" and "Cancel" appear in every dialog Windows has
+        ever shipped, and two matches must never be resolved by guessing.
+
+        This is the check the npm tool kept timing out on ("strict resolution
+        could not determine candidate identity"): the Font dialog's combo boxes
+        all have the *same* name ("Font:", "Size:") and only automation ids tell
+        them apart.
         """
+        candidates = list(self.controls.values())
+
         control = self.controls.get(element.ref)
-        if control is not None:
-            try:
-                if str(control.window_text() or "").strip() == element.name:
-                    return control
-            except Exception:
-                return control
-        matches = []
-        for candidate in self.controls.values():
-            try:
-                if str(candidate.window_text() or "").strip() != element.name:
-                    continue
-                if element.name == "":
-                    continue
-                matches.append(candidate)
-            except Exception:
-                continue
-        if len(matches) == 1:
-            return matches[0]
+        if control is not None and self._same_control(control, element):
+            return control
+
+        # 1. automation id + role: stable across dialog rebuilds
+        if element.native_id:
+            matches = [c for c in candidates if self._identified_by(c, element)
+                       and self._role_of(c) == element.role]
+            if len(matches) == 1:
+                return matches[0]
+            if len(matches) > 1:
+                # Several controls share the id (Notepad's three Font combos each
+                # hold a 1000 listbox and a 1001 edit). Narrowing by name does not
+                # help - the names are identical too - so use the ref, which is the
+                # only thing that distinguishes them, and only if it agrees.
+                remembered = self.controls.get(element.ref)
+                if remembered is not None and any(remembered is m for m in matches):
+                    return remembered
+                return None
+
+        # 2. name + role, but only when that name is unique on screen
+        if not element.name:
+            return None
+        named = [c for c in candidates
+                 if self._name_of(c) == element.name
+                 and self._role_of(c) == element.role]
+        if len(named) == 1:
+            return named[0]
         return None
+
+    # -- evidence helpers -------------------------------------------------
+    @staticmethod
+    def _name_of(control) -> str:
+        try:
+            return str(control.window_text() or "").strip()
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _role_of(control) -> str:
+        info = getattr(control, "element_info", control)
+        return normalize_role(str(getattr(info, "control_type", "") or ""))
+
+    @staticmethod
+    def _automation_id(control) -> str:
+        info = getattr(control, "element_info", control)
+        return str(getattr(info, "automation_id", "") or "")
+
+    @classmethod
+    def _same_control(cls, control, element: Element) -> bool:
+        """The ref still points at the element the snapshot described.
+
+        The automation id must agree when we have one - two buttons can share both
+        an id and a name, and accepting on name alone is how the wrong one gets
+        clicked. With no id recorded, name plus role is all the evidence there is.
+        """
+        if element.native_id:
+            return (cls._automation_id(control) == element.native_id
+                    and cls._role_of(control) == element.role)
+        return (cls._name_of(control) == element.name
+                and cls._role_of(control) == element.role)
+
+    @classmethod
+    def _identified_by(cls, control, element: Element) -> bool:
+        return cls._automation_id(control) == element.native_id
 
 
 def _snake(name: str) -> str:
