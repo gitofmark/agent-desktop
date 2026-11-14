@@ -29,10 +29,19 @@ def test_relative_to_window():
     assert relative(Rect(150, 70, 20, 20), window) == (50, 20)
 
 
+def test_zero_area_is_not_reported_as_offscreen():
+    """Providers report 0x0 for real nodes (Win11 Explorer, WPF before layout).
+
+    Treating that as offscreen silently deleted whole subtrees from Explorer.
+    It means "no clickable area", which format_bounds now labels separately.
+    """
+    assert not is_offscreen(Rect(0, 0, 0, 0))
+    assert not is_offscreen(Rect(10, 10, 5, 0))
+    assert "no-area" in format_bounds(Rect(0, 0, 0, 0))
+
+
 def test_offscreen_detection():
     window = Rect(100, 50, 800, 600)
-    assert is_offscreen(Rect(0, 0, 0, 0))
-    assert is_offscreen(Rect(10, 10, 5, 0))
     # completely left of the window
     assert is_offscreen(Rect(0, 60, 50, 20), window=window)
     # completely below the window
@@ -61,15 +70,17 @@ def test_element_geometry_record():
     }
 
 
-def test_element_geometry_flags_a_zero_size_box():
+def test_element_geometry_keeps_a_zero_size_box_but_reports_no_area():
     el = Element(ref="e1", rect=Rect(10, 10, 0, 0))
-    assert element_geometry(el)["offscreen"] is True
+    geo = element_geometry(el)
+    assert geo["offscreen"] is False
+    assert (geo["width"], geo["height"]) == (0, 0)
 
 
 def test_format_bounds_is_the_contract_form():
     assert format_bounds(Rect(1842, 12, 46, 32)) == "1842,12 46x32"
     assert "win 1764,8" in format_bounds(Rect(1764, 8, 46, 32), window=Rect(0, 0, 1920, 1080))
-    assert "offscreen" in format_bounds(Rect(0, 0, 0, 0))
+    assert "no-area" in format_bounds(Rect(0, 0, 0, 0))
 
 
 def test_dpi_scaling_round_trips():

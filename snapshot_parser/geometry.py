@@ -83,13 +83,17 @@ def relative(rect: Rect, window: Rect) -> tuple[int, int]:
 
 def is_offscreen(rect: Rect, screen: Optional[Rect] = None,
                  window: Optional[Rect] = None) -> bool:
-    """True when the element cannot be clicked: zero size, hidden or outside.
+    """True when the element lies completely outside its window.
 
-    With no ``screen`` given, an element is offscreen when it has no area or
-    lies completely outside its own window.
+    A zero-size rect is **not** treated as offscreen: several providers report
+    0x0 for nodes that are perfectly real - Windows 11 Explorer's command bar,
+    virtualised list items, and most WPF containers until they are laid out. The
+    snapshot used to drop those, which is why Explorer could come back nearly
+    empty while Notepad looked fine. A node with no area is unclickable, but it
+    is not offstage, and saying so is the renderer's job, not this one's.
     """
     if rect.empty:
-        return True
+        return False
     area = screen or window
     if area is None or area.empty:
         return False
@@ -143,7 +147,11 @@ def format_bounds(rect: Rect, window: Optional[Rect] = None,
     if not win.empty:
         rx, ry = relative(rect, win)
         text += f" (win {rx},{ry})"
-    if is_offscreen(rect, screen=screen, window=win):
+    if rect.empty:
+        # providers report this for real nodes; it means "no clickable area",
+        # which is more useful than either silence or a wrong "offscreen"
+        text += " no-area"
+    elif is_offscreen(rect, screen=screen, window=win):
         text += " offscreen"
     return text
 
