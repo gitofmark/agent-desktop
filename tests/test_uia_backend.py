@@ -265,3 +265,84 @@ def test_backend_says_why_it_cannot_run_here():
     else:
         assert not ok
         assert "Windows" in why
+
+
+# ---------------------------------------------------------------------------
+# File Explorer's shape: big, deep, and full of zero-size nodes
+# ---------------------------------------------------------------------------
+
+def _explorer_like(items: int = 60):
+    """A window whose navigator reports 0x0 - exactly what Win11 Explorer does."""
+    rows = [
+        FakeControl("ListItem", f"file{i}.txt", (0, 0, 0, 0))
+        for i in range(items)
+    ]
+    grid = FakeControl("List", "Items View", (250, 120, 900, 600), children=rows)
+    nav = FakeControl("Tree", "Navigation", (0, 0, 0, 0),
+                      children=[FakeControl("TreeItem", "Desktop", (0, 0, 0, 0)),
+                                FakeControl("TreeItem", "Downloads", (0, 0, 0, 0))])
+    bar = FakeControl("ToolBar", "Command bar", (0, 0, 0, 0),
+                      children=[FakeControl("Button", "New", (0, 0, 0, 0), invokable=True),
+                                FakeControl("Button", "Delete", (0, 0, 0, 0), invokable=True)])
+    root = FakeControl("Window", "Downloads", (0, 0, 1200, 800),
+                       children=[bar, nav, grid])
+    return root, grid, rows
+
+
+def test_explorer_rows_survive_the_zero_size_geometry():
+    """Regression: 0x0 nodes were marked invisible, which emptied Explorer.
+
+    Win11's navigator and virtualised list report no area at all. Dropping them
+    left a snapshot with a header and nothing else.
+    """
+    root, grid, rows = _explorer_like()
+    tree = build(root).build()
+    list_item = next(el for el in tree.walk() if el.name == "file3.txt")
+    assert list_item.visible is True
+    assert list_item.rect.empty
+    assert list_item.role == "listitem"
+
+
+def test_explorer_tree_renders_rows_not_just_a_header():
+    from snapshot_parser.budget import is_renderable
+
+    root, grid, rows = _explorer_like()
+    tree = build(root).build()
+    visible = [el for el in tree.walk() if is_renderable(el)]
+    names = {el.name for el in visible}
+    assert "file0.txt" in names and "file59.txt" in names
+    assert "Downloads" in names          # a zero-size tree item, still shown
+    assert "New" in names                # a zero-size toolbar button, still shown
+
+
+def test_the_node_budget_is_actually_enforced(monkeypatch):
+    """MAX_NODES was declared and exported but never checked."""
+    import snapshot_parser.backends.windows_uia as uia
+
+    monkeypatch.setattr(uia, "MAX_NODES", 10)
+    root, _, _ = _explorer_like(items=80)
+    session = uia.UiaSession(root, Rect(0, 0, 1200, 800))
+    tree = session.build()
+    assert session.truncated is True
+    assert len(list(tree.walk())) < 80
+
+
+def test_a_truncated_read_says_so(monkeypatch):
+    import snapshot_parser.backends.windows_uia as uia
+
+    monkeypatch.setattr(uia, "MAX_NODES", 8)
+    root, _, _ = _explorer_like(items=80)
+    session = uia.UiaSession(root, Rect(0, 0, 1200, 800))
+    session.build()
+    assert session.truncated
+
+
+def test_deep_but_narrow_trees_are_not_cut_by_depth():
+    """Electron nests content ~11 levels down; the old guard was depth 60 for all."""
+    from snapshot_parser.backends.windows_uia import MAX_DEPTH
+
+    node = FakeControl("Button", "deep", (0, 0, 10, 10))
+    for level in range(MAX_DEPTH - 5):
+        node = FakeControl("Pane", f"p{level}", (0, 0, 100, 100), children=[node])
+    tree = build(node).build()
+    assert any(el.name == "deep" for el in tree.walk())

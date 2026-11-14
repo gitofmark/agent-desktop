@@ -245,6 +245,23 @@ Code — "README.md - Visual Studio Code"  (snapshot 1, session local)
 Windows that work with no extra flags: anything native - Notepad, cmd, Explorer,
 Calculator, WinForms/WPF/WinUI apps, Office.
 
+## Big windows (File Explorer, deep trees)
+
+Two things keep a huge tree from making the tool look empty:
+
+* **Zero-size nodes are real.** Windows 11's Explorer reports no area for its
+  navigator, command bar and virtualised list rows. Those were being discarded as
+  "offscreen", which is why Explorer came back as a header and almost nothing else.
+  They are now kept, and `bounds` labels them `no-area` instead of `offscreen`.
+* **The read is capped at 4000 nodes**, and says so when it hits the cap:
+
+  ```
+  ! tree truncated at 4000 elements - the snapshot shows the first part;
+    use `find` or `--window` on a smaller window for the rest
+  ```
+
+  Use `find "<name>"` to reach something the cap cut off.
+
 ## Common mistakes
 
 | Symptom | Cause | Fix |

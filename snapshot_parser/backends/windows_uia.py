@@ -29,10 +29,14 @@ from ..roles import canonical_actions, normalize_role
 from ..state import extract_state
 from .base import ActionResult, Backend, BackendUnavailable, WindowInfo
 
-__all__ = ["WindowsUiaBackend", "UiaSession", "MAX_NODES"]
+__all__ = ["WindowsUiaBackend", "UiaSession", "MAX_NODES", "MAX_DEPTH"]
 
 #: Hard stop so a pathological tree cannot hang a snapshot (Step 27).
 MAX_NODES = 4000
+#: Backstop against a cyclic/pathological hierarchy. Deep-but-narrow trees are
+#: real (Electron nests content ~11 levels down), so this is generous: the node
+#: budget above is the guard that actually bounds the work.
+MAX_DEPTH = 120
 
 #: State properties actually probed, in pywinauto's method spelling.
 _STATE_PROBES = (
@@ -148,6 +152,33 @@ class _ChildWindows:
             return
 
     @staticmethod
+    def exe_of_pid(pid: int) -> str:
+        """Image name for a pid, via ctypes (no psutil dependency)."""
+        if not pid or sys.platform != "win32":
+            return ""
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            kernel32 = ctypes.windll.kernel32
+            process = kernel32.OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not process:
+                return ""
+            try:
+                buffer = ctypes.create_unicode_buffer(1024)
+                size = wintypes.DWORD(1024)
+                if kernel32.QueryFullProcessImageNameW(
+                        process, 0, buffer, ctypes.byref(size)):
+                    return os.path.basename(buffer.value)
+            finally:
+                kernel32.CloseHandle(process)
+        except Exception:
+            return ""
+        return ""
+
+    @staticmethod
     def exe_of(handle: int) -> str:
         """The process image name owning a window, for the heuristic and hint."""
         if not handle or sys.platform != "win32":
@@ -234,7 +265,9 @@ class WindowsUiaBackend(Backend):
                     out.append(
                         WindowInfo(
                             number=index,
-                            app=str(win.element_info.control_type or ""),
+                            app=_process_name(int(getattr(win.element_info,
+                                                          "process_id", 0) or 0))
+                                or str(win.element_info.control_type or ""),
                             title=str(win.window_text() or ""),
                             rect=box,
                             handle=hex(handle) if handle else "",
@@ -313,6 +346,10 @@ class WindowsUiaBackend(Backend):
             self.session_tree = session_tree
             if _is_empty_tree(root):
                 snap.hint = browser_hint(snap.title, exe)
+            elif session_tree.truncated:
+                snap.hint = (f"tree truncated at {MAX_NODES} elements - the snapshot "
+                             f"shows the first part; use `find` or `--window` on a "
+                             f"smaller window for the rest")
         except BackendUnavailable:
             raise
         except Exception as exc:
@@ -415,6 +452,26 @@ def _readable(exc: BaseException) -> str:
     return f"UI Automation error: {text}"[:300]
 
 
+def _process_name(pid: int) -> str:
+    """Image name owning a pid, e.g. ``explorer`` / ``Code``.
+
+    The windows table used to show the UIA control type here ("Window", "Pane"),
+    which is not an app name and made every app look identical.
+    """
+    if not pid:
+        return ""
+    if sys.platform == "win32":
+        name = _ChildWindows.exe_of_pid(pid)
+        if name:
+            return os.path.splitext(name)[0]
+    try:
+        import psutil
+
+        return psutil.Process(int(pid)).name().replace(".exe", "")
+    except Exception:
+        return ""
+
+
 def _app_name(control) -> str:
     try:
         info = control.element_info
@@ -469,8 +526,17 @@ class UiaSession:
         self.controls: dict[str, Any] = {}
         self.dialog: Optional[Element] = None
         self._counter = 0
+        #: True when MAX_NODES cut the tree short
+        self.truncated = False
 
     def build(self) -> Element:
+        """Read the window, stopping at ``MAX_NODES`` (step 27's guard, really applied).
+
+        Explorer and big Electron apps expose thousands of nodes; without the cap
+        a snapshot can walk for minutes. Truncation is recorded so the renderer
+        can say the tree was cut rather than silently showing a partial view.
+        """
+        self.truncated = False
         return self._build(self.window, depth=0)
 
     def _next_ref(self) -> str:
@@ -479,6 +545,8 @@ class UiaSession:
 
     def _build(self, control, depth: int) -> Element:
         ref = self._next_ref()
+        if self._counter > MAX_NODES:
+            self.truncated = True
         self.controls[ref] = control
         info = getattr(control, "element_info", control)
         raw_role = str(getattr(info, "control_type", "") or "")
@@ -496,11 +564,11 @@ class UiaSession:
         state = self._state(control)
         actions, action_ids = self._actions(control)
         value = None
-        try:
-            if "set value" in actions or raw_role.lower() == "edit":
+        if "set value" in actions or raw_role.lower() in ("edit", "document"):
+            try:
                 value = control.get_value()
-        except Exception:
-            value = None
+            except Exception:
+                value = None
         element = Element(
             ref=ref,
             role=normalize_role(raw_role),
@@ -514,8 +582,13 @@ class UiaSession:
             raw_role=raw_role,
             action_ids=action_ids,
         )
-        element.properties["runtime_id"] = str(getattr(info, "runtime_id", "") or "")
-        if depth < 60:
+        if actions or name:
+            element.properties["runtime_id"] = str(getattr(info, "runtime_id", "") or "")
+        if self._counter >= MAX_NODES:
+            # stop walking: this is the guard that actually bounds the work
+            self.truncated = True
+            return element
+        if depth < MAX_DEPTH:
             try:
                 children = control.children()
             except Exception:
@@ -525,6 +598,8 @@ class UiaSession:
                     element.add(self._build(child, depth + 1))
                 except Exception:
                     continue
+                if self.truncated:
+                    break
         return element
 
     def _state(self, control) -> dict[str, Any]:

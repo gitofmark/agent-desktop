@@ -189,8 +189,10 @@ def format_bounds_line(snapshot: Snapshot, ref: str,
     label = " ".join(part for part in (geo["name"], geo["ref"]) if part)
     text = f"{label} @ {geo['x']},{geo['y']} {geo['width']}x{geo['height']}"
     text += f"  center {geo['cx']},{geo['cy']}  win {geo['rx']},{geo['ry']}"
-    if geo["offscreen"]:
+    if geo["width"] and geo["height"] and geo["offscreen"]:
         text += "  offscreen"
+    elif not (geo["width"] and geo["height"]):
+        text += "  no-area"
     return text
 
 
