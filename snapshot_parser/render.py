@@ -417,6 +417,9 @@ def render_snapshot(snapshot: Snapshot, opts: Optional[RenderOptions] = None,
                     screen: Optional[Rect] = None) -> str:
     """Render a whole snapshot: header, then capped element lines."""
     opts = opts or RenderOptions()
+    if snapshot.hint and snapshot.root is not None and not snapshot.root.children:
+        # an empty tree with a known cause: say what to do, do not print a bare header
+        return render_error(snapshot.hint, snapshot)
     if snapshot.error or snapshot.root is None:
         return render_error(snapshot.error or "no accessibility tree for this window",
                             snapshot)

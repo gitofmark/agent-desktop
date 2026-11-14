@@ -212,6 +212,39 @@ The fixture backend answers `windows`, `snapshot` and every action with a
 simulated result, so an agent loop can be developed and tested on CI with no
 display at all.
 
+## Browsers and Electron apps (VS Code, Edge, WhatsApp, Slack)
+
+These build their UI with Chromium. Chromium keeps its accessibility tree
+**switched off until something asks for it**, so by default the window exposes its
+frame and nothing else - you get a snapshot with no useful lines.
+
+Restart the app with accessibility enabled. It has to be at launch: a window that
+is already open will not start exposing a tree later.
+
+```bash
+code   --force-renderer-accessibility        # VS Code
+msedge --force-renderer-accessibility        # Edge
+chrome --force-renderer-accessibility        # Chrome
+```
+
+For a browser you can instead enable it for the current pages at
+`chrome://accessibility` or `edge://accessibility` (no restart, per page).
+
+When the tree is empty for a window that looks like a browser, the snapshot says
+so instead of printing a blank header:
+
+```
+Code — "README.md - Visual Studio Code"  (snapshot 1, session local)
+
+! no accessibility tree: this is a Chromium/Electron window and renderer
+  accessibility is off. Restart it with `code --force-renderer-accessibility`
+  (existing windows never enable it later), or turn it on for one page via
+  chrome://accessibility / edge://accessibility
+```
+
+Windows that work with no extra flags: anything native - Notepad, cmd, Explorer,
+Calculator, WinForms/WPF/WinUI apps, Office.
+
 ## Common mistakes
 
 | Symptom | Cause | Fix |

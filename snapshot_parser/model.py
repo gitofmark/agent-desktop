@@ -196,6 +196,9 @@ class Snapshot:
     elapsed_ms: float = 0.0
     #: source of the tree: "fixture", "linux-x11", "windows-uia", ...
     backend: str = ""
+    #: one actionable line when the tree came back unusable (e.g. a browser with
+    #: renderer accessibility off). Rendered as a hint, never as a fake tree.
+    hint: str = ""
     #: snapshot number the stored geometry was read at (R10)
     bounds_snapshot: Optional[int] = None
 

@@ -19,6 +19,7 @@ Design notes
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any, Optional
 
@@ -40,6 +41,143 @@ _STATE_PROBES = (
     "is_read_only", "is_modal", "is_password", "is_required_for_form",
     "is_invalid", "is_busy",
 )
+
+
+
+#: Chromium/Electron windows only expose their *frame* until the renderer's
+#: accessibility is switched on. Without this the tree is one Pane with no
+#: children, which looks like "the tool only works on Notepad".
+_BROWSER_TITLES = (
+    " - microsoft\u200b edge", " - google chrome", "visual studio code",
+    "whatsapp", "slack", "discord", "notion", "teams", "obsidian", "postman",
+    "arena |", "electron",
+)
+_BROWSER_EXES = (
+    "msedge.exe", "chrome.exe", "code.exe", "brave.exe", "vivaldi.exe",
+    "opera.exe", "firefox.exe", "whatsapp.exe", "slack.exe", "discord.exe",
+    "notion.exe", "teams.exe", "ms-teams.exe", "obsidian.exe",
+)
+#: Chromium renders its UI into a child with this window class.
+_RENDER_CLASS = "Chrome_RenderWidgetHostHWND"
+
+
+def looks_like_browser(title: str = "", exe: str = "") -> bool:
+    """Heuristic: does this window host a Chromium/Electron web view?"""
+    lowered_title = (title or "").lower()
+    lowered_exe = (exe or "").lower()
+    return (any(marker in lowered_title for marker in _BROWSER_TITLES)
+            or any(lowered_exe.endswith(name) for name in _BROWSER_EXES))
+
+
+def browser_hint(title: str = "", exe: str = "") -> str:
+    """What the user has to do for a browser/Electron window to be readable."""
+    name = os.path.basename(exe) if exe else "the app"
+    if "code.exe" in (exe or "").lower():
+        launch = "code --force-renderer-accessibility"
+    elif "msedge" in (exe or "").lower():
+        launch = 'msedge --force-renderer-accessibility'
+    elif "chrome" in (exe or "").lower():
+        launch = "chrome --force-renderer-accessibility"
+    else:
+        launch = f"{name} --force-renderer-accessibility"
+    return (
+        "no accessibility tree: this is a Chromium/Electron window and renderer "
+        "accessibility is off. Restart it with `" + launch + "` (existing windows "
+        "never enable it later), or turn it on for one page via "
+        "chrome://accessibility / edge://accessibility"
+    )
+
+
+def _is_empty_tree(root: Element) -> bool:
+    """True when the read produced nothing an agent could act on."""
+    if root is None:
+        return True
+    return not root.children and not (root.name and root.name.strip())
+
+
+class _ChildWindows:
+    """Find the Chromium render child and wake its accessibility tree.
+
+    Electron exposes nothing until an automation client actually attaches to the
+    render widget, so a read has to knock on it first. Everything here is
+    best-effort: no ctypes, no win32, no change in behaviour off Windows.
+    """
+
+    RENDER_CLASS = "Chrome_RenderWidgetHostHWND"
+
+    @staticmethod
+    def handles(top_level: int) -> list[int]:
+        if not top_level or sys.platform != "win32":
+            return []
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            user32 = ctypes.windll.user32
+            found: list[int] = []
+
+            @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)  # type: ignore[misc]
+            def visit(child, _param):
+                buffer = ctypes.create_unicode_buffer(256)
+                user32.GetClassNameW(child, buffer, 256)
+                if buffer.value == _ChildWindows.RENDER_CLASS:
+                    found.append(int(child))
+                return True
+
+            user32.EnumChildWindows(wintypes.HWND(top_level), visit, 0)
+            return found
+        except Exception:
+            return []
+
+    @staticmethod
+    def wake(handle: int) -> None:
+        """Send WM_GETOBJECT(UiaRootObjectId) so the renderer builds a tree."""
+        if not handle or sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            WM_GETOBJECT = 0x003D
+            UiaRootObjectId = -25
+            # SendMessageTimeout, not SendMessage: a hung renderer must not hang us
+            ctypes.windll.user32.SendMessageTimeoutW(
+                wintypes.HWND(handle), WM_GETOBJECT, wintypes.WPARAM(0),
+                wintypes.LPARAM(UiaRootObjectId), 0x0002, 300, None)
+        except Exception:
+            return
+
+    @staticmethod
+    def exe_of(handle: int) -> str:
+        """The process image name owning a window, for the heuristic and hint."""
+        if not handle or sys.platform != "win32":
+            return ""
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            pid = wintypes.DWORD(0)
+            ctypes.windll.user32.GetWindowThreadProcessId(
+                wintypes.HWND(handle), ctypes.byref(pid))
+            if not pid.value:
+                return ""
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            kernel32 = ctypes.windll.kernel32
+            process = kernel32.OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
+            if not process:
+                return ""
+            try:
+                buffer = ctypes.create_unicode_buffer(1024)
+                size = wintypes.DWORD(1024)
+                if kernel32.QueryFullProcessImageNameW(
+                        process, 0, buffer, ctypes.byref(size)):
+                    return os.path.basename(buffer.value)
+            finally:
+                kernel32.CloseHandle(process)
+        except Exception:
+            return ""
+        return ""
 
 
 class WindowsUiaBackend(Backend):
@@ -156,11 +294,25 @@ class WindowsUiaBackend(Backend):
             snap.app = _app_name(win)
             rect = win.rectangle()
             window_rect = Rect(rect.left, rect.top, rect.width(), rect.height())
+            handle = int(getattr(win, "handle", 0) or 0)
+            exe = _ChildWindows.exe_of(handle) or str(
+                getattr(getattr(win, "element_info", win), "process_id", "") or "")
             session_tree = UiaSession(win, window_rect)
             root = session_tree.build()
+            if _is_empty_tree(root) and looks_like_browser(snap.title, exe):
+                # Chromium/Electron expose only their frame until accessibility is
+                # on. Knock on the render widget and re-read once: for Electron
+                # this is what materialises the tree, for Chrome it is not enough
+                # and the hint below is the real answer.
+                for child in _ChildWindows.handles(handle):
+                    _ChildWindows.wake(child)
+                session_tree = UiaSession(win, window_rect)
+                root = session_tree.build()
             snap.root = root
             snap.dialog = session_tree.dialog
             self.session_tree = session_tree
+            if _is_empty_tree(root):
+                snap.hint = browser_hint(snap.title, exe)
         except BackendUnavailable:
             raise
         except Exception as exc:

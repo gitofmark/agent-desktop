@@ -139,6 +139,7 @@ class Context:
                 f"window '{window or 'foreground'}' has no accessibility tree",
                 EXIT_NO_WINDOW,
             )
+        self.live_snapshot = True
         if store and self.use_state:
             try:
                 self.state.store(snapshot)
@@ -148,6 +149,11 @@ class Context:
             except OSError as exc:
                 raise CliError(f"cannot write session state: {exc.strerror or exc}") from None
         return snapshot
+
+    #: True when the last snapshot held in `self` was read live in this process
+    #: (backends that act on live controls need that; a snapshot reloaded from
+    #: disk has no controls behind it).
+    live_snapshot = False
 
     def current_snapshot(self) -> Snapshot:
         """The snapshot refs are validated against (fresh only if there is none)."""
@@ -315,6 +321,7 @@ def cmd_snapshot(ctx: Context) -> int:
             "text": text,
             "elements": snapshot.count(),
             "lines": len(text.splitlines()),
+            "hint": snapshot.hint,
         })
         return EXIT_OK
     emit(text)
@@ -414,6 +421,27 @@ def _dry_run(ctx: Context) -> bool:
     return bool(getattr(ctx.args, "dry_run", False))
 
 
+def _live_snapshot(ctx: Context) -> Snapshot:
+    """A snapshot with live controls behind it, for backends that act on them.
+
+    `current_snapshot()` may hand back the snapshot reloaded from `.echo-desktop/`
+    - which is what makes refs survive between commands, but means the backend
+    has no controls to act on. Re-reading once costs one tree walk and turns
+    "no live tree; snapshot first" into a working click.
+    """
+    snapshot = ctx.current_snapshot()
+    if getattr(ctx, "live_snapshot", False):
+        return snapshot
+    if not getattr(ctx.backend, "interactive", False):
+        return snapshot
+    fresh = ctx.take_snapshot(bump=False, store=False)
+    if fresh.root is not None:
+        fresh.number = snapshot.number
+        ctx.live_snapshot = True
+        return fresh
+    return snapshot
+
+
 def _finish_action(ctx: Context, snapshot: Snapshot, result: Any,
                    action: str, ref: str, target: Optional[Element]) -> int:
     """Common tail of every action: output, verify diff, exit code."""
@@ -475,7 +503,7 @@ def _confirm_risky(ctx: Context, action: str, target: Optional[Element],
 
 
 def cmd_click(ctx: Context) -> int:
-    snapshot = ctx.current_snapshot()
+    snapshot = _live_snapshot(ctx)
     el = ctx.element(ctx.args.ref, snapshot)
     _confirm_risky(ctx, "click", el, el.ref)
     action = "double click" if ctx.args.double else ("right click" if ctx.args.right else "click")
@@ -488,7 +516,7 @@ def cmd_click(ctx: Context) -> int:
 
 def cmd_click_at(ctx: Context) -> int:
     x, y = int(ctx.args.x), int(ctx.args.y)
-    snapshot = ctx.current_snapshot() if ctx.use_state else ctx.take_snapshot()
+    snapshot = _live_snapshot(ctx) if ctx.use_state else ctx.take_snapshot()
     if _dry_run(ctx):
         if ctx.json:
             emit_json({"ok": True, "action": "click-at", "point": {"x": x, "y": y},
@@ -518,7 +546,7 @@ def cmd_click_at(ctx: Context) -> int:
 
 
 def cmd_type(ctx: Context) -> int:
-    snapshot = ctx.current_snapshot()
+    snapshot = _live_snapshot(ctx)
     el = ctx.element(ctx.args.ref, snapshot)
     text = ctx.args.text
     if _dry_run(ctx):
@@ -537,7 +565,7 @@ def cmd_type(ctx: Context) -> int:
 
 
 def cmd_set_value(ctx: Context) -> int:
-    snapshot = ctx.current_snapshot()
+    snapshot = _live_snapshot(ctx)
     el = ctx.element(ctx.args.ref, snapshot)
     if _dry_run(ctx):
         value = ctx.args.text
@@ -554,7 +582,7 @@ def cmd_set_value(ctx: Context) -> int:
 
 
 def cmd_focus(ctx: Context) -> int:
-    snapshot = ctx.current_snapshot()
+    snapshot = _live_snapshot(ctx)
     el = ctx.element(ctx.args.ref, snapshot)
     if _dry_run(ctx):
         if ctx.json:
@@ -567,7 +595,7 @@ def cmd_focus(ctx: Context) -> int:
 
 
 def cmd_scroll(ctx: Context) -> int:
-    snapshot = ctx.current_snapshot()
+    snapshot = _live_snapshot(ctx)
     el = ctx.element(ctx.args.ref, snapshot)
     amount = int(ctx.args.down or ctx.args.up or 3)
     direction = "up" if ctx.args.up else "down"
@@ -593,7 +621,7 @@ def cmd_collapse(ctx: Context) -> int:
 
 
 def _toggle(ctx: Context, action: str) -> int:
-    snapshot = ctx.current_snapshot()
+    snapshot = _live_snapshot(ctx)
     el = ctx.element(ctx.args.ref, snapshot)
     if _dry_run(ctx):
         if ctx.json:
@@ -607,7 +635,7 @@ def _toggle(ctx: Context, action: str) -> int:
 
 def cmd_key(ctx: Context) -> int:
     combo = ctx.args.combo
-    snapshot = ctx.current_snapshot() if ctx.use_state else ctx.take_snapshot()
+    snapshot = _live_snapshot(ctx) if ctx.use_state else ctx.take_snapshot()
     if combo.strip().lower() in DESTRUCTIVE_KEYS and not (
         getattr(ctx.args, "yes", False) or _dry_run(ctx)
     ):
