@@ -697,6 +697,141 @@ def _window_op(ctx: Context, kind: str) -> int:
     return EXIT_OK
 
 
+def cmd_launch(ctx: Context) -> int:
+    """Start a program, then wait for a window that looks like it.
+
+    `launch notepad` is the difference between a script that works on a clean
+    machine and one that assumes the app is already open.
+    """
+    program = ctx.args.program
+    if _dry_run(ctx):
+        if ctx.json:
+            emit_json({"ok": True, "action": "launch", "program": program,
+                       "dry_run": True})
+        else:
+            emit(f"dry run: would launch {program} - nothing was started")
+        return EXIT_OK
+    try:
+        pid = ctx.backend.launch(program)
+    except BackendUnavailable as exc:
+        raise CliError(str(exc), EXIT_ACTION_FAILED) from None
+    wanted = ctx.args.wait or ""
+    window = None
+    if wanted or ctx.args.wait_for_window:
+        deadline = time.time() + float(ctx.args.timeout)
+        while time.time() < deadline:
+            try:
+                for info in ctx.backend.windows():
+                    if pid and info.pid == pid:
+                        window = info
+                        break
+                    if wanted and wanted.lower() in (info.title or "").lower():
+                        window = info
+                        break
+                if window is not None:
+                    break
+            except (BackendUnavailable, ReaderError):
+                pass
+            time.sleep(0.2)
+        if window is None and (wanted or ctx.args.wait_for_window):
+            raise CliError(
+                f"started '{program}' (pid {pid}) but no matching window appeared "
+                f"within {ctx.args.timeout}s; try `{PROG} windows`", EXIT_NO_WINDOW)
+    if ctx.json:
+        emit_json({"ok": True, "action": "launch", "program": program, "pid": pid,
+                   "window": window.as_dict() if window else None})
+    else:
+        emit(f"launched {program} (pid {pid})")
+        if window is not None:
+            emit(f"  window {window.number}: {window.title or '(untitled)'} "
+                 f"{window.rect}")
+    return EXIT_OK
+
+
+def cmd_focus_window(ctx: Context) -> int:
+    """Bring a window to the front. Typed keys go to the focused window, so this
+    is not optional before `type`/`key` on a window you did not just click."""
+    window = _window_arg(ctx)
+    if not window:
+        window = ""      # "" means "the foreground window", which is what focus means
+    if _dry_run(ctx):
+        if ctx.json:
+            emit_json({"ok": True, "action": "focus-window", "window": window,
+                       "dry_run": True})
+        else:
+            emit(f"dry run: would focus '{window}' - nothing was changed")
+        return EXIT_OK
+    if window:
+        _require_window_exists(ctx)
+    try:
+        ctx.backend.focus_window(window or None)
+    except BackendUnavailable as exc:
+        raise CliError(str(exc), EXIT_ACTION_FAILED) from None
+    if ctx.json:
+        emit_json({"ok": True, "action": "focus-window", "window": window})
+    else:
+        emit(f"focused '{window}'")
+    return EXIT_OK
+
+
+def cmd_notepad(ctx: Context) -> int:
+    """Notepad operations that a raw click sequence gets wrong."""
+    from .apps import notepad as np
+
+    action = ctx.args.action
+    controller = np.Notepad(ctx.backend, window=_window_arg(ctx) or "",
+                            session=ctx.session, number=ctx.state.number)
+    if _dry_run(ctx):
+        # a dry run must not type, save or close anything
+        detail = {"read": "read the document", "type": f"type {ctx.args.text!r}",
+                  "set-text": "replace the document",
+                  "save": "save", "save-as": f"save as {ctx.args.path}",
+                  "font": "open Format > Font", "set-font": "set the font",
+                  "close": "close the window", "new-tab": "open a new tab"}[action]
+        if ctx.json:
+            emit_json({"ok": True, "action": f"notepad {action}", "dry_run": True,
+                       "would": detail})
+        else:
+            emit(f"dry run: would {detail} - nothing was changed")
+        return EXIT_OK
+    try:
+        if action == "read":
+            text = controller.text()
+            payload = {"ok": True, "action": "notepad read", "text": text,
+                       "chars": len(text),
+                       "lines": text.count("\n") + (1 if text else 0)}
+            if ctx.json:
+                emit_json(payload)
+            else:
+                emit(text if text else "(empty document)")
+            return EXIT_OK
+        if action == "type":
+            message = controller.type(ctx.args.text)
+        elif action == "set-text":
+            message = controller.set_text(ctx.args.text)
+        elif action == "save-as":
+            message = controller.save_as(ctx.args.path)
+        elif action == "save":
+            message = controller.save()
+        elif action == "font":
+            message = np.open_font(ctx.backend, controller.snapshot())
+        elif action == "set-font":
+            message = controller.set_font(ctx.args.family, ctx.args.style, ctx.args.size)
+        elif action == "close":
+            message = controller.close_tab(save=ctx.args.save)
+        elif action == "new-tab":
+            message = controller.new_tab()
+        else:
+            raise CliError(f"unknown notepad action '{action}'", EXIT_USAGE)
+    except np.NotepadError as exc:
+        raise CliError(str(exc), EXIT_ACTION_FAILED) from None
+    if ctx.json:
+        emit_json({"ok": True, "action": f"notepad {action}", "message": message})
+    else:
+        emit(message)
+    return EXIT_OK
+
+
 def cmd_wait(ctx: Context) -> int:
     wanted = ctx.args.target
     timeout = float(ctx.args.timeout)
@@ -781,7 +916,8 @@ def cmd_doctor(ctx: Context) -> int:
 
 READ_COMMANDS = {"windows", "snapshot", "inspect", "bounds", "find", "read", "diff", "doctor"}
 ACT_COMMANDS = {"click", "click-at", "type", "set-value", "focus", "scroll",
-                "expand", "collapse", "key", "move-window", "resize-window", "wait"}
+                "expand", "collapse", "key", "move-window", "resize-window", "wait",
+                "launch", "focus-window", "select", "notepad"}
 
 
 # --------------------------------------------------------------------------
@@ -925,6 +1061,32 @@ def build_parser() -> argparse.ArgumentParser:
     _common(p, act=True)
     p.add_argument("ref")
     p.set_defaults(func=cmd_collapse)
+
+    p = subparsers.add_parser("launch", help="start a program and wait for its window")
+    _common(p, act=True)
+    p.add_argument("program", help="executable or command line, e.g. notepad")
+    p.add_argument("--wait", metavar="TITLE", default="",
+                   help="wait until a window with this title substring appears")
+    p.add_argument("--wait-for-window", action="store_true",
+                   help="wait for the launched process's window")
+    p.add_argument("--timeout", type=float, default=10.0, metavar="SECONDS")
+    p.set_defaults(func=cmd_launch)
+
+    p = subparsers.add_parser("focus-window", help="bring a window to the foreground")
+    _common(p, act=True)
+    p.set_defaults(func=cmd_focus_window)
+
+    p = subparsers.add_parser("notepad", help="Notepad operations (read, type, save, font)")
+    _common(p, act=True)
+    p.add_argument("action", choices=["read", "type", "set-text", "save", "save-as",
+                                      "font", "set-font", "close", "new-tab"])
+    p.add_argument("text", nargs="?", default="", help="text, for type/set-text")
+    p.add_argument("--path", default="", help="file path, for save-as")
+    p.add_argument("--family", default="", help="font family, for set-font")
+    p.add_argument("--style", default="", help="font style, for set-font")
+    p.add_argument("--size", default="", help="font size, for set-font")
+    p.add_argument("--save", action="store_true", help="save before closing")
+    p.set_defaults(func=cmd_notepad)
 
     p = subparsers.add_parser("key", help="send a key combination, e.g. ctrl+s")
     _common(p, act=True)

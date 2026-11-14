@@ -105,6 +105,53 @@ no change
 `read` gives the full text of one element - useful because the snapshot truncates
 long values on purpose.
 
+## Notepad, end to end
+
+`notepad` groups the operations that a raw click sequence gets wrong. Each one
+re-reads the tree, resolves the control by its stable identity, and reports what
+it did.
+
+```bash
+echo-desktop launch notepad --wait "Notepad"     # start it, wait for the window
+echo-desktop notepad type "hello world" --window "Notepad"
+echo-desktop notepad read --window "Notepad"     # the full document
+echo-desktop notepad set-text "replaced" --window "Notepad"
+echo-desktop notepad save-as "C:\notes.txt" --window "Notepad"
+echo-desktop notepad font --window "Notepad"     # open Format > Font
+echo-desktop notepad set-font --family Consolas --style Bold --size 14
+echo-desktop notepad close --window "Notepad"     # answers "Don't save"
+echo-desktop notepad close --save --window "Notepad"
+```
+
+`focus-window` brings a window forward, which matters because **typed keys go to
+whatever has focus** - not to the window you snapshotted:
+
+```bash
+echo-desktop focus-window --window "Notepad"
+echo-desktop key "ctrl+a"
+```
+
+### Why the Font dialog is hard, and what it proves
+
+Notepad's Font dialog has three combo boxes whose children are almost identical:
+
+```
+[combobox] Font:        id 1136  → [listbox 'Font:' id 1000] [edit 'Font:' id 1001]
+[combobox] Font style:  id 1137  → [listbox 'Font style:' id 1000] [edit 'Font style:' id 1001]
+[combobox] Size:        id 1138  → [listbox 'Size:' id 1000] [edit 'Size:' id 1001]
+```
+
+The ids **repeat** and the names are **identical**. Matching on name picks one at
+random; matching on id alone matches three. So resolution is: automation id, then
+role, then the remembered ref - and if that still leaves more than one candidate it
+returns nothing rather than guessing. `notepad set-font` drives each field by its
+own combo, so "Consolas" cannot land in the Size box.
+
+That is also why the npm tool's `TIMEOUT: strict resolution could not determine
+candidate identity` happened, and why the workaround in that session was raw
+`mouse-click --xy 176,464` on screen coordinates - which breaks the moment the
+window moves.
+
 ## The rule that matters: refs are handles, not names
 
 A ref is valid **for the snapshot and session that printed it**. Nothing else.
